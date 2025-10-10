@@ -13,7 +13,7 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
         
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -30,7 +30,7 @@ jobs:
       run: pyinstaller Sawnick_Out_of_Love.spec
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: game-${{ matrix.os }}
         path: dist/
