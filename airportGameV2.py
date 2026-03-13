@@ -78,6 +78,7 @@ ARROW_GOLD = (139, 0, 0)
 # Add these global variables at the start of the file, after the other imports and constants
 selected_lover_image = None  # Will store which lover image to use
 music_muted = False  # Initialize music mute state
+music_volume = 0.5  # Music volume 0.0-1.0, used when not muted
 is_title_screen = True  # Track if we're on title screen
 
 # Add these new global variables near other game variables
@@ -200,7 +201,7 @@ try:
     # Load and play the title screen music
     pygame.mixer.music.load(resource_path("SawnickTitleScreen.mp3"))  # Title screen music
     pygame.mixer.music.play(-1)
-    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.set_volume(music_volume)
 except Exception as e:
     print(f"Could not load theme song. Error: {str(e)}")
 
@@ -209,7 +210,10 @@ game_soundtracks = [
     'Sawnick Out of Love.mp3',
     'Sawnick_ Out of LoveEmoVersion.mp3',
     'Sawnick_ Out of Love Theme 3.0.mp3',
-    "The Valentine's Day Game of Love.mp3"
+    "The Valentine's Day Game of Love.mp3",
+    "Heartbeats in the Loop.mp3",
+    "Speed of Love.mp3",
+    "Speed of Love (needs work)DONE.wav"
 ]
 
 class Player(pygame.sprite.Sprite):
@@ -481,9 +485,6 @@ def reset_game():
     victory_timer = 0
     ending_sequence_started = False  # Reset ending sequence state
     
-    # Reset key bindings to default values and save them
-    set_default_key_bindings()
-    
     # Generate first level
     generate_new_level(current_level)
     
@@ -496,16 +497,34 @@ def reset_game():
         selected_track = random.choice(game_soundtracks)
         pygame.mixer.music.load(resource_path(selected_track))
         pygame.mixer.music.play(-1)
-        pygame.mixer.music.set_volume(0.5 if not music_muted else 0)
+        pygame.mixer.music.set_volume(0 if music_muted else music_volume)
     except Exception as e:
         print(f"Could not restart music: {str(e)}")
 
 # Add this line to create a clock instance
 clock = pygame.time.Clock()
 
+# Load Back2Menu button (shown during gameplay only)
+try:
+    back2menu_image = pygame.image.load(resource_path('Back2Menu.png'))
+    back2menu_image = pygame.transform.scale(back2menu_image, (120, 40))
+except Exception as e:
+    print(f"Could not load Back2Menu.png: {str(e)}")
+    back2menu_image = None
+
+# Load settings button (underneath Back2Menu during gameplay)
+try:
+    settings_btn_image = pygame.image.load(resource_path('settings.png'))
+    settings_btn_image = pygame.transform.scale(settings_btn_image, (40, 40))
+except Exception as e:
+    print(f"Could not load settings.png: {str(e)}")
+    settings_btn_image = None
+
 # Game loop
 running = True
 game_over = False
+death_count = 0  # Easter egg: 3 game overs in a row (no level complete in between) = pride song
+PRIDE_EGG_DEATHS = 3  # Number of consecutive deaths before pride song plays
 
 # Add these variables near the other game variables
 invulnerability_timer = 0
@@ -560,7 +579,7 @@ def trigger_cutscene(skip_glide=False):
     try:
         pygame.mixer.music.load(resource_path("Finally Together no intro.wav"))
         pygame.mixer.music.play(-1, fade_ms=1000)  # Fade in over 1 second
-        pygame.mixer.music.set_volume(0.5 if not music_muted else 0)
+        pygame.mixer.music.set_volume(0 if music_muted else music_volume)
     except Exception as e:
         print(f"Could not load victory music: {str(e)}")
     
@@ -774,21 +793,44 @@ class TheLover:
             self.image = None
 
 def show_game_over_screen():
+    global death_count
+    death_count += 1
+    print(f"[Pride egg] Game over #{death_count} (need {PRIDE_EGG_DEATHS} in a row for pride song)")
     try:
-        # Play the game over jingle
-        pygame.mixer.music.load(resource_path("gameoverjinglecustom.mp3"))
+        # Easter egg: after PRIDE_EGG_DEATHS game overs in a row, play happy pride song
+        if death_count >= PRIDE_EGG_DEATHS:
+            pride_loaded = False
+            for name in ("happy pride (this is the only lyrics).mp3",):  # comma = tuple of 1, so name is the full filename
+                try:
+                    pygame.mixer.music.load(resource_path(name))
+                    pride_loaded = True
+                    print(f"[Pride egg] Playing pride song: {name}")
+                    break
+                except Exception:
+                    pass
+            if not pride_loaded:
+                print(f"[Pride egg] Pride song file not found (tried happy pride (this is the only lyrics).mp3), playing normal jingle")
+                pygame.mixer.music.load(resource_path("gameoverjinglecustom.mp3"))
+        else:
+            pygame.mixer.music.load(resource_path("gameoverjinglecustom.mp3"))
         pygame.mixer.music.play()
     except Exception as e:
-        print(f"Could not play game over jingle: {str(e)}")
+        print(f"Could not play game over music: {str(e)}")
     
     try:
         # Load the game over background and retry button images
-        game_over_img = pygame.image.load(resource_path('gameOver.png'))
+        # When pride egg triggers, show happyPride.jpg instead of gameOver.png
+        pride_egg_active = (death_count >= PRIDE_EGG_DEATHS)
+        if pride_egg_active:
+            try:
+                game_over_img = pygame.image.load(resource_path('happyPride.jpg'))
+                game_over_img = pygame.transform.scale(game_over_img, (int(WINDOW_WIDTH * 0.7), int(WINDOW_HEIGHT * 0.6)))
+            except Exception:
+                pride_egg_active = False
+        if not pride_egg_active:
+            game_over_img = pygame.image.load(resource_path('gameOver.png'))
+            game_over_img = pygame.transform.scale(game_over_img, (int(WINDOW_WIDTH * 0.6), int(WINDOW_WIDTH * 0.6)))
         retry_button = pygame.image.load(resource_path('anotherTry.png'))
-        
-        # Scale images with adjusted dimensions
-        # Make game over image smaller (60% of window width) and square
-        game_over_img = pygame.transform.scale(game_over_img, (int(WINDOW_WIDTH * 0.6), int(WINDOW_WIDTH * 0.6)))
         # Make retry button less tall
         retry_button = pygame.transform.scale(retry_button, (200, 70))
         
@@ -1007,7 +1049,7 @@ def show_chili_ending():
         try:
             pygame.mixer.music.load(resource_path("Chili Dog Delight.mp3"))
             pygame.mixer.music.play(-1, fade_ms=1000)  # Fade in over 1 second
-            pygame.mixer.music.set_volume(0.5 if not music_muted else 0)
+            pygame.mixer.music.set_volume(0 if music_muted else music_volume)
         except Exception as e:
             print(f"Could not load chili dog ending music: {str(e)}")
 
@@ -1044,15 +1086,112 @@ def show_chili_ending():
 
 # Modify the toggle_music function
 def toggle_music():
-    global music_muted, is_title_screen
+    global music_muted, music_volume, is_title_screen
     music_muted = not music_muted
     
     # Only affect music if we're not on the title screen
     if not is_title_screen:
-        if music_muted:
-            pygame.mixer.music.set_volume(0)
-        else:
-            pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(0 if music_muted else music_volume)
+
+def show_settings_popup():
+    """Small in-game settings popup: volume slider and key rebinding for left, right, jump."""
+    global music_volume, key_bindings
+    
+    popup_w, popup_h = 320, 240
+    popup_x = (WINDOW_WIDTH - popup_w) // 2
+    popup_y = (WINDOW_HEIGHT - popup_h) // 2
+    popup_rect = pygame.Rect(popup_x, popup_y, popup_w, popup_h)
+    
+    # Slider dimensions
+    slider_w, slider_h = 180, 12
+    slider_x = popup_x + (popup_w - slider_w) // 2
+    slider_y = popup_y + 55
+    slider_rect = pygame.Rect(slider_x, slider_y, slider_w, slider_h)
+    thumb_w = 16
+    
+    selected_key = None  # 'left', 'right', or 'jump' when waiting for key press
+    slider_dragging = False
+    
+    small_font = pygame.font.Font(None, 28)
+    
+    popup_active = True
+    while popup_active:
+        # Draw dimmed background
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        overlay.fill((0, 0, 0))
+        overlay.set_alpha(128)
+        screen.blit(overlay, (0, 0))
+        
+        # Draw popup box
+        pygame.draw.rect(screen, (240, 230, 240), popup_rect)
+        pygame.draw.rect(screen, RED_HEART, popup_rect, 3)
+        
+        # Title
+        title = small_font.render("Settings", True, RED_HEART)
+        screen.blit(title, (popup_x + (popup_w - title.get_width()) // 2, popup_y + 12))
+        
+        # Volume label and slider
+        vol_label = small_font.render("Volume", True, RED_HEART)
+        screen.blit(vol_label, (popup_x + (popup_w - vol_label.get_width()) // 2, popup_y + 35))
+        pygame.draw.rect(screen, (180, 180, 180), slider_rect)
+        thumb_x = slider_x + int((music_volume) * (slider_w - thumb_w))
+        pygame.draw.rect(screen, RED_HEART, (thumb_x, slider_y - 2, thumb_w, slider_h + 4))
+        
+        # Key bindings: left, right, jump
+        key_actions = [('left', 'Move Left'), ('right', 'Move Right'), ('jump', 'Jump')]
+        key_y = popup_y + 85
+        key_rects = {}
+        for i, (action, label) in enumerate(key_actions):
+            y = key_y + i * 38
+            key_name = pygame.key.name(key_bindings[action]).upper()
+            text = small_font.render(f"{label}: {key_name}", True, RED_HEART)
+            r = pygame.Rect(popup_x + 20, y - 2, popup_w - 40, 28)
+            key_rects[action] = r
+            if selected_key == action:
+                pygame.draw.rect(screen, (255, 200, 200), r)
+            pygame.draw.rect(screen, RED_HEART, r, 1)
+            screen.blit(text, (popup_x + 25, y))
+        
+        # Done hint
+        done_text = small_font.render("Click outside to close", True, (120, 120, 120))
+        screen.blit(done_text, (popup_x + (popup_w - done_text.get_width()) // 2, popup_y + popup_h - 28))
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if not popup_rect.collidepoint(event.pos):
+                    popup_active = False
+                elif slider_rect.collidepoint(event.pos):
+                    slider_dragging = True
+                    # Update volume based on click position
+                    rel = (event.pos[0] - slider_x) / max(1, slider_w - thumb_w)
+                    music_volume = max(0, min(1, rel))
+                    pygame.mixer.music.set_volume(0 if music_muted else music_volume)
+                else:
+                    for action, _ in key_actions:
+                        if key_rects[action].collidepoint(event.pos):
+                            selected_key = action
+                            break
+            elif event.type == pygame.MOUSEBUTTONUP:
+                slider_dragging = False
+            elif event.type == pygame.MOUSEMOTION:
+                if slider_dragging:
+                    rel = (event.pos[0] - slider_x) / max(1, slider_w - thumb_w)
+                    music_volume = max(0, min(1, rel))
+                    pygame.mixer.music.set_volume(0 if music_muted else music_volume)
+            elif event.type == pygame.KEYDOWN:
+                if selected_key:
+                    key_bindings[selected_key] = event.key
+                    save_key_bindings()
+                    selected_key = None
+                elif event.key == pygame.K_ESCAPE:
+                    popup_active = False
+        
+        clock.tick(60)
 
 def show_tutorial_screen():
     tutorial_active = True
@@ -1239,7 +1378,7 @@ def show_credits():
         # Credits text
         credits = [
             "Coding:",
-            "Carson Koenig w/ Cursor AI",
+            "Carson Koenig & Zoey Tepman w/ Cursor AI",
             "",
             "Sprites:",
             "Zoey Tepman",
@@ -1478,7 +1617,7 @@ def show_title_screen():
                         selected_track = random.choice(game_soundtracks)
                         pygame.mixer.music.load(resource_path(selected_track))
                         pygame.mixer.music.play(-1)
-                        pygame.mixer.music.set_volume(0 if music_muted else 0.5)
+                        pygame.mixer.music.set_volume(0 if music_muted else music_volume)
                     except Exception as e:
                         print(f"Could not load game music: {str(e)}")
                     
@@ -1521,6 +1660,23 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            # Back to menu button (upper right) - only during gameplay
+            if back2menu_image and not game_over:
+                back_btn_rect = pygame.Rect(WINDOW_WIDTH - 130, 10, 120, 40)
+                settings_btn_rect = pygame.Rect(WINDOW_WIDTH - 55, 55, 40, 40)  # Underneath Back2Menu, closer to edge
+                if back_btn_rect.collidepoint(event.pos):
+                    death_count = 0  # Reset death count when returning to menu
+                    reset_game()
+                    try:
+                        pygame.mixer.music.load(resource_path("SawnickTitleScreen.mp3"))
+                        pygame.mixer.music.play(-1)
+                        pygame.mixer.music.set_volume(0 if music_muted else music_volume)
+                    except Exception as e:
+                        print(f"Could not load title music: {str(e)}")
+                    show_title_screen()
+                elif settings_btn_image and settings_btn_rect.collidepoint(event.pos):
+                    show_settings_popup()
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 show_tutorial_screen()  # Show tutorial when ESC is pressed
@@ -1696,6 +1852,7 @@ while running:
                         pygame.display.flip()
                         clock.tick(60)
                     boss_fight = False
+                    death_count = 0  # Beating the boss cancels the pride-song death streak
                     # Instead of triggering cutscene, start lover glide
                     lover = TheLover()
                     lover_glide_active = True
@@ -1805,6 +1962,7 @@ while running:
                         pygame.display.flip()
                         clock.tick(60)
                     boss_fight = False
+                    death_count = 0  # Beating the boss cancels the pride-song death streak
                     lover = TheLover()
                     lover_glide_active = True
                     lover_glide_y = -80
@@ -1920,6 +2078,15 @@ while running:
     if lover_glide_active and lover:
         if lover.image:
             screen.blit(lover.image, (lover_glide_x - 30, lover_glide_y))
+
+    # Draw Back2Menu button in upper right (during gameplay only, on top of everything)
+    if back2menu_image:
+        back_btn_rect = pygame.Rect(WINDOW_WIDTH - 130, 10, 120, 40)
+        screen.blit(back2menu_image, (back_btn_rect.x, back_btn_rect.y))
+    # Draw settings button underneath Back2Menu
+    if settings_btn_image:
+        settings_btn_rect = pygame.Rect(WINDOW_WIDTH - 55, 55, 40, 40)
+        screen.blit(settings_btn_image, (settings_btn_rect.x, settings_btn_rect.y))
 
     # Update display
     pygame.display.flip()
