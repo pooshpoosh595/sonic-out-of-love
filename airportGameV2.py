@@ -213,7 +213,7 @@ game_soundtracks = [
     "The Valentine's Day Game of Love.mp3",
     "Heartbeats in the Loop.mp3",
     "Speed of Love.mp3",
-    "Speed of Love (needs work)DONE.wav"
+    "Speed of Love (needs work)DONE.mp3"
 ]
 
 class Player(pygame.sprite.Sprite):
