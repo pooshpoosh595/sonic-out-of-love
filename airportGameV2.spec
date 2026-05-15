@@ -5,7 +5,7 @@ a = Analysis(
     ['airportGameV2.py'],
     pathex=[],
     binaries=[],
-    datas=[('sawnick.png', '.'), ('joyful_lover.png', '.'), ('SawnickTitleScreen.mp3', '.'), ('key_bindings.json', '.')],
+    datas=[('*.png', '.'), ('*.jpg', '.'), ('*.mp3', '.'), ('*.wav', '.'), ('*.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
