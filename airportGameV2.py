@@ -511,6 +511,8 @@ try:
 except Exception as e:
     print(f"Could not load Back2Menu.png: {str(e)}")
     back2menu_image = None
+    
+print(f"back2menu_image value after loading: {back2menu_image}")
 
 # Load settings button (underneath Back2Menu during gameplay)
 try:
